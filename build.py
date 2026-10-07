@@ -5,12 +5,12 @@ FONTS = '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=I
 BODY = '''<header class="top"><div class="top-in">
 <div class="brand">سحابة <span>AZ-104</span></div>
 <nav id="nav" aria-label="الأقسام">
-<a href="#home">الرئيسية</a><a href="#objectives">المحاور</a><a href="#practice">تدريب</a><a href="#cards">بطاقات</a><a href="#exam">امتحان</a><a href="#bank">البنك</a><a href="#log">السجل</a><a href="#data">بياناتي</a>
+<a href="#home">الرئيسية</a><a href="#objectives">المحاور</a><a href="#practice">تدريب</a><a href="#cards">بطاقات</a><a href="#exam">امتحان</a><a href="#labs">مشاريع</a><a href="#bank">البنك</a><a href="#log">السجل</a><a href="#data">بياناتي</a>
 </nav><button class="theme" id="theme" type="button">المظهر: تلقائي</button></div></header>
 <main id="app"></main>'''
 TITLE = '<title>سحابة Study Lab</title>'
 css = (root / 'assets/style.css').read_text(encoding='utf-8')
-DATA = ['data/az-104.js', 'data/az-104-b.js', 'data/az-104-c.js']
+DATA = ['data/az-104.js', 'data/az-104-b.js', 'data/az-104-c.js', 'data/labs.js', 'data/labs-b.js']
 data = '\n'.join((root / f).read_text(encoding='utf-8') for f in DATA)
 TAGS = '\n'.join(f'<script src="{f}"></script>' for f in DATA)
 js = (root / 'assets/app.js').read_text(encoding='utf-8')

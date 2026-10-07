@@ -5,6 +5,8 @@
   CARDS.forEach(function (c) { CM[c.id] = c; });
   var SECS = [], SM = {};
   TRACK.domains.forEach(function (d) { d.sections.forEach(function (s) { s.dom = d; SECS.push(s); SM[s.id] = s; }); });
+  var LABS = window.SAHABA_LABS || [], LM = {};
+  LABS.forEach(function (l) { LM[l.id] = l; });
   var KEY = "sahaba.v1", STEPS = [1, 3, 7, 16, 35];
   var LOG_TRACKS = ["AZ-104", "AZ-500", "SOC L1", "IAM", "إلكترونيات / IoT"];
   var LOG_KINDS = ["لاب", "درس", "فيديو", "ملاحظة"];
@@ -12,7 +14,7 @@
   root.lang = "ar"; root.dir = "rtl";
 
   /* ---------- state ---------- */
-  function blank() { return { q: {}, c: {}, obj: {}, log: [], days: {}, exams: [], flag: {}, note: {}, set: { goal: 20, examDate: "", theme: "" } }; }
+  function blank() { return { q: {}, c: {}, obj: {}, log: [], days: {}, exams: [], flag: {}, note: {}, lab: {}, labNote: {}, set: { goal: 20, examDate: "", theme: "" } }; }
   function merge(o) { var b = blank(), s = Object.assign(b, o); s.set = Object.assign(blank().set, o.set || {}); return s; }
   function load() {
     try { var o = JSON.parse(localStorage.getItem(KEY)); if (o && typeof o === "object") return merge(o); } catch (e) {}
@@ -28,6 +30,7 @@
   function day(n) { var d = new Date(); d.setDate(d.getDate() + (n || 0)); return dstr(d); }
   function shuffle(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
   function pct(x) { return Math.round(x * 100); }
+  function md(s) { return esc(s).replace(/`([^`]+)`/g, '<code dir="ltr">$1</code>'); }
   function st(id) { return S.q[id]; }
   function mastery(qs) { if (!qs.length) return 0; var t = 0; qs.forEach(function (q) { var s = st(q.id); if (s) t += Math.min(s.box, 4) / 4; }); return t / qs.length; }
   function inSec(id) { return QS.filter(function (q) { return q.s === id; }); }
@@ -76,7 +79,7 @@
   function start(qs, mode, title, minutes) {
     if (!qs.length) { flash = "مفيش أسئلة مطابقة للاختيار ده."; render(); return; }
     cs = null;
-    ses = { mode: mode, title: title, items: shuffle(qs).map(mkItem), i: 0, right: 0, n: qs.length, retry: {} };
+    ses = { mode: mode, title: title, items: shuffle(qs).map(mkItem), i: 0, right: 0, n: qs.length, retry: {}, back: view() === "labs" ? location.hash : "" };
     if (mode === "exam") {
       ses.end = Date.now() + minutes * 60000;
       tick = setInterval(function () {
@@ -293,6 +296,13 @@
       h += '<div class="item"><div class="t en"><span class="num muted small">' + x.s.id + "</span> " + esc(x.s.name) + '</div><span class="chip bad"><span class="num">' + x.wrong + '</span> غلطة</span><div class="meter"><i style="width:' + pct(x.m) + '%"></i></div><button class="btn" data-act="sec" data-s="' + x.s.id + '">تدرّب</button></div>';
     });
     h += "</div></section>";
+    if (LABS.length) {
+      var ld = LABS.filter(labDone).length, cur = LABS.filter(function (l) { var p = labProg(l); return p[0] && p[0] < p[1]; })[0] || LABS.filter(function (l) { return !labDone(l); })[0];
+      h += '<section><div class="head"><h2>مشاريع عملية على Azure</h2><span class="small muted">نفّذ على اشتراكك وعلّم على اللي خلص</span></div><div class="list">';
+      h += '<div class="item"><div class="t"><span class="num">' + ld + " / " + LABS.length + '</span> مشروع خلص</div><div class="meter"><i style="width:' + pct(ld / LABS.length) + '%"></i></div><a class="btn" href="#labs">كل المشاريع</a></div>';
+      if (cur) h += '<div class="item"><div class="t">' + (labProg(cur)[0] ? "كمّل: " : "ابدأ بـ: ") + esc(cur.t) + '<span class="sub">' + esc(cur.time) + " · " + esc(cur.cost) + '</span></div><a class="btn primary" href="#labs/' + cur.id + '">افتح</a></div>';
+      h += "</div></section>";
+    }
     h += '<section><h2>المسارات</h2><div class="tracks"><span class="chip new">AZ-104 · شغّال</span><span class="chip">AZ-500 · بعده</span><span class="chip">SOC L1 · لاحقاً</span><span class="chip">إلكترونيات / IoT · لاحقاً</span></div></section>';
     return h;
   }
@@ -400,6 +410,72 @@
     return h + "</div></section>";
   }
 
+  /* ---------- labs ---------- */
+  LABS.forEach(function (l, i) { l.n = p2(i + 1); });
+  function labKeys(l) { var k = l.steps.map(function (_, i) { return String(i); }); if (l.brk) k.push("b"); k.push("c"); return k; }
+  function labProg(l) { var o = S.lab[l.id] || {}, k = labKeys(l); return [k.filter(function (x) { return o[x]; }).length, k.length]; }
+  function labDone(l) { var p = labProg(l); return p[0] === p[1]; }
+  function labQs(l) { return QS.filter(function (q) { return l.secs.indexOf(q.s) > -1; }); }
+  function labChip(l) { var p = labProg(l); return p[0] === p[1] ? '<span class="chip good">خلص</span>' : p[0] ? '<span class="chip due">شغّال</span>' : '<span class="chip">لسه</span>'; }
+  function labMeter(l) {
+    var p = labProg(l), n = document.getElementById("lab-n"), m = document.getElementById("lab-m"), c = document.getElementById("lab-c");
+    if (n) n.textContent = p[0] + " / " + p[1]; if (m) m.style.width = pct(p[0] / p[1]) + "%"; if (c) c.innerHTML = labChip(l);
+  }
+  function code(c) { return '<div class="code"><button class="cp" type="button" data-act="cp">انسخ</button><pre>' + esc(c) + "</pre></div>"; }
+  function reveal(label, body) { return '<details class="rv"><summary>' + label + "</summary>" + body + "</details>"; }
+  function stepHead(l, k, title, num) {
+    var id = "lb-" + l.id + "-" + k, on = (S.lab[l.id] || {})[k];
+    return '<label class="step-h" for="' + id + '"><input type="checkbox" id="' + id + '" data-lab="' + l.id + ":" + k + '"' + (on ? " checked" : "") + "><h3>" + (num ? '<span class="num muted">' + num + "</span> " : "") + md(title) + "</h3></label>";
+  }
+  function vLabRoute() { var l = LM[location.hash.slice(1).split("/")[1]]; return l ? vLab(l) : vLabs(); }
+  function vLabs() {
+    var done = LABS.filter(labDone), sd = 0, st = 0, cov = {}, h = "";
+    LABS.forEach(function (l) { var p = labProg(l); sd += p[0]; st += p[1]; });
+    done.forEach(function (l) { l.secs.forEach(function (s) { cov[s] = 1; }); });
+    h += '<section><div class="today"><div><h1>مشاريع عملية على Azure</h1><p class="muted">' + LABS.length + " مشاريع بتغطي محاور " + esc(TRACK.name) + " كلها وبتكمّل على الأمان. كل مشروع فيه سيناريو وخطوات تنفّذها على اشتراكك، وتلميح وحل لكل خطوة لما تعلق.</p></div></div>";
+    h += '<div class="stats"><div><b>' + done.length + "/" + LABS.length + "</b><span>مشروع خلص</span></div><div><b>" + sd + "/" + st + "</b><span>خطوة اتنفذت</span></div><div><b>" + Object.keys(cov).length + "/" + SECS.length + "</b><span>قسم " + esc(TRACK.name) + " اتغطى عملي</span></div><div><b>" + (st ? pct(sd / st) : 0) + "%</b><span>التقدم الكلي</span></div></div></section>";
+    h += '<section><details class="sec"' + (sd ? "" : " open") + '><summary><span class="t">قبل أي مشروع</span><span class="chip due">اقراها مرة</span></summary><div class="in"><ul class="ul">';
+    ["اعمل Budget بتنبيهات على الاشتراك قبل أي حاجة (أول خطوة في مشروع 1).", "اشتغل من Azure Cloud Shell (Bash): الـ `az` جاهز ومسجّل دخول، والأوامر مكتوبة عليه.", "كل مشروع في resource group لوحده اسمه `rg-lab-XX`، فالتنظيف أمر واحد.", "حاول تحل الخطوة لوحدك الأول، وبعدين التلميح، وبعدين الحل. الهدف إنك تفهم مش إنك تنسخ.", "نفّذ من الـ portal مرة لو مش فاهم الخطوة، وبعدين أعدها بالـ CLI.", "لو طلع `RequestDisallowedByAzure` أو الحجم مش متاح: غيّر `LOC` لـ region تاني أو جرّب حجم VM تاني.", "نضّف في نفس اليوم. المشاريع اللي فيها Bastion أو أكتر من VM مكتوب عليها."].forEach(function (x) { h += "<li>" + md(x) + "</li>"; });
+    h += "</ul></div></details></section>";
+    var grp = "";
+    LABS.forEach(function (l) {
+      var p = labProg(l);
+      if (l.grp !== grp) { if (grp) h += "</div></section>"; grp = l.grp; h += '<section><h2 class="en">' + esc(grp) + '</h2><div class="list">'; }
+      h += '<div class="item"><div class="t"><span class="num muted small">' + l.n + "</span> " + esc(l.t) + '<span class="sub en">' + esc(l.en) + '</span><span class="sub">' + esc(l.lvl) + " · " + esc(l.time) + " · " + esc(l.cost) + "</span></div>" + labChip(l) + '<span class="num small muted">' + p[0] + "/" + p[1] + '</span><div class="meter"><i style="width:' + pct(p[0] / p[1]) + '%"></i></div><a class="btn" href="#labs/' + l.id + '">افتح</a></div>';
+    });
+    return h + "</div></section>";
+  }
+  function vLab(l) {
+    var p = labProg(l), o = S.lab[l.id] || {}, qs = labQs(l), h = "";
+    h += '<section><a class="small" href="#labs">رجوع لكل المشاريع</a><div class="today"><div><p class="muted small num">مشروع ' + l.n + " · " + esc(l.track) + "</p><h1>" + esc(l.t) + '</h1><p class="muted en">' + esc(l.en) + '</p><div class="counts"><span class="chip new">' + esc(l.lvl) + '</span><span class="chip">' + esc(l.time) + '</span><span class="chip due">' + esc(l.cost) + "</span></div></div>";
+    h += '<div class="lab-p"><span id="lab-c">' + labChip(l) + '</span><span class="num" id="lab-n">' + p[0] + " / " + p[1] + '</span><div class="meter wide"><i id="lab-m" style="width:' + pct(p[0] / p[1]) + '%"></i></div></div></div></section>';
+    h += "<section><h2>السيناريو</h2><p>" + md(l.scn) + '</p><p class="muted">' + md(l.goal) + "</p>";
+    if (l.secs.length) { h += '<div class="tracks">'; l.secs.forEach(function (s) { h += '<span class="chip en">' + s + " " + esc(SM[s].name) + "</span>"; }); h += "</div>"; }
+    h += "</section><section><h2>المعمارية</h2><pre>" + esc(l.arch) + "</pre></section>";
+    if (l.need && l.need.length) { h += '<section><h2>هتحتاج</h2><ul class="ul">'; l.need.forEach(function (x) { h += "<li>" + md(x) + "</li>"; }); h += "</ul></section>"; }
+    h += '<section><h2>التجهيز</h2><p class="muted small">شغّلها مرة في أول الجلسة. المتغيرات دي مستخدمة في كل الخطوات، ولو قفلت الـ shell عرّفها تاني.</p>' + code(l.setup) + "</section>";
+    h += '<section><div class="head"><h2>الخطوات</h2><span class="small muted">علّم على الخطوة لما تتأكد إنها اشتغلت</span></div>';
+    l.steps.forEach(function (s, i) {
+      h += '<div class="step' + (o[i] ? " done" : "") + '">' + stepHead(l, i, s.t, i + 1) + "<p>" + md(s.d) + '</p><p class="verify"><b>تتأكد إزاي:</b> ' + md(s.v) + "</p>";
+      if (s.h) h += reveal("تلميح", "<p>" + md(s.h) + "</p>");
+      h += reveal("الحل", code(s.c)) + "</div>";
+    });
+    h += "</section>";
+    h += '<section><h2>اكسره وصلّحه</h2><div class="step brk' + (o.b ? " done" : "") + '">' + stepHead(l, "b", l.brk.t) + "<p>" + md(l.brk.d) + "</p>" + reveal("تلميح", "<p>" + md(l.brk.h) + "</p>") + reveal("الحل", code(l.brk.c)) + "</div></section>";
+    h += '<section><h2>التنظيف</h2><div class="step' + (o.c ? " done" : "") + '">' + stepHead(l, "c", "مسحت كل الموارد") + "<p>" + md(l.clean.d) + "</p>" + code(l.clean.c) + "</div></section>";
+    h += '<section><h2>لازم تقدر تشرح</h2><p class="muted small">لو مش قادر تشرح واحدة منهم بكلامك من غير ما تبص، ارجع للخطوة بتاعتها.</p><ul class="ul">';
+    l.explain.forEach(function (x) { h += "<li>" + md(x) + "</li>"; });
+    h += "</ul></section>";
+    if (qs.length) {
+      h += '<section><h2>أسئلة امتحان على المشروع ده</h2><div class="list"><div class="item"><div class="t">كل أسئلة الأقسام اللي المشروع بيغطيها</div><span class="num small muted">' + qs.length + '</span><button class="btn primary" data-act="labq" data-l="' + l.id + '">تدرّب</button></div>';
+      l.secs.forEach(function (s) { h += '<div class="item"><div class="t en"><span class="num muted small">' + s + "</span> " + esc(SM[s].name) + '</div><span class="num small muted">' + inSec(s).length + '</span><div class="meter"><i style="width:' + pct(mastery(inSec(s))) + '%"></i></div><button class="btn" data-act="sec" data-s="' + s + '">تدرّب</button></div>'; });
+      h += "</div></section>";
+    }
+    h += '<section><h2>ملاحظاتك</h2><div class="card"><label class="f" for="ln-' + l.id + '">إيه اللي علّق معاك وإيه اللي اتعلمته (بتتحفظ لوحدها)<textarea class="note" id="ln-' + l.id + '" data-labnote="' + l.id + '" placeholder="مثال: نسيت allowForwardedTraffic والـ next hop كان بيقول إن كله تمام">' + esc(S.labNote[l.id] || "") + '</textarea></label><div class="row"><button class="btn" data-act="lablog" data-l="' + l.id + '">سجّل المشروع في السجل</button></div></div>';
+    if (l.refs && l.refs.length) { h += '<p class="small">المراجع: '; l.refs.forEach(function (r, i) { h += (i ? " · " : "") + '<a class="en" href="' + esc(r[1]) + '" target="_blank" rel="noopener">' + esc(r[0]) + "</a>"; }); h += "</p>"; }
+    return h + "</section>";
+  }
+
   var askReset = false, dataMsg = "";
   function vData() {
     var h = '<section><h2>إعدادات المذاكرة</h2><div class="card"><div class="fields">';
@@ -420,8 +496,8 @@
   }
 
   /* ---------- routing ---------- */
-  var VIEWS = { home: vHome, objectives: vObjectives, practice: vPractice, cards: vCards, exam: vExam, bank: vBank, log: vLog, data: vData };
-  function view() { var v = location.hash.slice(1); return VIEWS[v] ? v : "home"; }
+  var VIEWS = { home: vHome, objectives: vObjectives, practice: vPractice, cards: vCards, exam: vExam, labs: vLabRoute, bank: vBank, log: vLog, data: vData };
+  function view() { var v = location.hash.slice(1).split("/")[0]; return VIEWS[v] ? v : "home"; }
   function render() {
     var v = view(), h;
     document.querySelectorAll("nav a").forEach(function (a) { if (a.getAttribute("href") === "#" + v) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
@@ -451,6 +527,18 @@
       case "dom": start(prep(inDom(b.dataset.d)), "practice", "تدريب: " + TRACK.domains[b.dataset.d - 1].ar); break;
       case "sec": start(inSec(b.dataset.s), "practice", "تدريب: " + b.dataset.s); break;
       case "open": start([QM[b.dataset.id]], "practice", "سؤال من البنك"); break;
+      case "labq": start(labQs(LM[b.dataset.l]), "practice", "أسئلة مشروع " + LM[b.dataset.l].n); break;
+      case "lablog": {
+        var lb = LM[b.dataset.l], nt = (S.labNote[lb.id] || "").trim();
+        S.log.unshift({ d: day(), track: lb.log, kind: "لاب", text: "مشروع " + lb.n + ": " + lb.t + (nt ? " — " + nt : ""), link: "" });
+        save(); flash = "اتسجّل في السجل."; render(); window.scrollTo(0, 0); break;
+      }
+      case "cp": {
+        var pre = b.closest(".code").querySelector("pre"), done = function () { b.textContent = "اتنسخ"; setTimeout(function () { b.textContent = "انسخ"; }, 1500); };
+        var sel = function () { var r = document.createRange(); r.selectNodeContents(pre); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); };
+        try { navigator.clipboard.writeText(pre.textContent).then(done, sel); } catch (e) { sel(); }
+        break;
+      }
       case "exam": start(examPick(+b.dataset.n), "exam", "امتحان تجريبي", +b.dataset.m); break;
       case "pick": {
         var o = +b.dataset.o, k = it.sel.indexOf(o);
@@ -471,7 +559,7 @@
       case "askEnd": ses.confirmEnd = true; render(); window.scrollTo(0, 0); break;
       case "noEnd": ses.confirmEnd = false; render(); break;
       case "finish": finishExam(); break;
-      case "exit": { var wasCards = !!cs; stop(); var to = wasCards ? "#cards" : (view() === "bank" ? "#bank" : "#home"); if (location.hash !== to && !(to === "#home" && !location.hash)) location.hash = to; else render(); window.scrollTo(0, 0); break; }
+      case "exit": { var wasCards = !!cs, back = ses && ses.back; stop(); var to = back || (wasCards ? "#cards" : (view() === "bank" ? "#bank" : "#home")); if (location.hash !== to && !(to === "#home" && !location.hash)) location.hash = to; else render(); window.scrollTo(0, 0); break; }
       case "cStart": startCards(cDue().concat(shuffle(cNew()).slice(0, 10))); break;
       case "cAll": startCards(CARDS); break;
       case "cShow": cs.show = true; render(); break;
@@ -498,6 +586,11 @@
   app.addEventListener("change", function (ev) {
     var t = ev.target, d = t.dataset || {};
     if (d.ob) { if (t.checked) S.obj[d.ob] = 1; else delete S.obj[d.ob]; save(); openSec[d.ob.split(":")[0]] = true; render(); }
+    else if (d.lab) {
+      var lp = d.lab.split(":"), lo = S.lab[lp[0]] || (S.lab[lp[0]] = {});
+      if (t.checked) lo[lp[1]] = 1; else delete lo[lp[1]];
+      save(); var bx = t.closest(".step"); if (bx) bx.classList.toggle("done", t.checked); labMeter(LM[lp[0]]);
+    }
     else if (d.pr) { if (d.pr === "n") pr.n = +t.value; else pr.unseen = t.checked; }
     else if (d.set) {
       if (d.set === "goal") S.set.goal = Math.max(5, Math.min(200, +t.value || 20)); else S.set.examDate = t.value;
@@ -509,6 +602,7 @@
   app.addEventListener("input", function (ev) {
     var t = ev.target, d = t.dataset || {};
     if (d.note) { var v = t.value.trim(); if (v) S.note[d.note] = v; else delete S.note[d.note]; save(); }
+    else if (d.labnote) { var lv = t.value.trim(); if (lv) S.labNote[d.labnote] = lv; else delete S.labNote[d.labnote]; save(); }
     else if (d.bk === "q") { bank.q = t.value; document.getElementById("bk-list").innerHTML = bankRows(); }
   });
   app.addEventListener("toggle", function (ev) { var d = ev.target; if (d.dataset && d.dataset.s) openSec[d.dataset.s] = d.open; }, true);

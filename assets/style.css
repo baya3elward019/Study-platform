@@ -193,3 +193,33 @@ input[type=number],input[type=date],input[type=file]{background:var(--bg);border
 .tb i{display:block;width:100%;max-height:80%;border-radius:3px 3px 0 0;background:var(--bad)}
 .tb i.ok{background:var(--good)}
 .exp{text-align:start}
+
+/* ---- labs ---- */
+code{font-family:var(--mono);font-size:.86em;background:var(--sunk);border:1px solid var(--line);border-radius:4px;padding:0 5px;unicode-bidi:isolate;overflow-wrap:anywhere}
+a.btn{text-decoration:none;display:inline-block;color:var(--ink)}
+a.btn.primary{color:var(--accent-ink)}
+.sub{display:block;font-size:.84rem;color:var(--muted)}
+.ul{margin:0;padding-inline-start:22px;display:flex;flex-direction:column;gap:6px;max-width:72ch}
+.lab-p{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+section>p{max-width:72ch}
+.step{background:var(--surface);border:1px solid var(--line);border-inline-start:4px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.step.done{border-inline-start-color:var(--good)}
+.step.brk{border-inline-start-color:var(--due)}
+.step.brk.done{border-inline-start-color:var(--good)}
+.step>p{max-width:72ch}
+.step-h{display:flex;gap:12px;align-items:flex-start;cursor:pointer}
+.step-h input{accent-color:var(--good);width:20px;height:20px;margin:4px 0 0;flex:none}
+.step-h h3{font-size:1.06rem}
+.step.done .step-h h3{color:var(--good)}
+.verify{font-size:.93rem;color:var(--muted)}
+.verify b{color:var(--good);font-weight:600}
+details.rv{border:1px solid var(--line);border-radius:8px;background:var(--bg);min-width:0}
+details.rv summary{cursor:pointer;padding:8px 12px;color:var(--accent);font-weight:500;font-size:.93rem}
+details.rv[open] summary{border-bottom:1px solid var(--line)}
+details.rv>p{padding:10px 12px;max-width:72ch}
+details.rv>.code{margin:10px}
+.code{position:relative;min-width:0}
+.code pre{padding-top:38px;max-height:520px;overflow:auto}
+.cp{position:absolute;top:6px;right:6px;font-family:var(--body);font-size:.78rem;padding:2px 10px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--muted);cursor:pointer}
+.cp:hover{color:var(--ink);border-color:var(--accent)}
+section>pre{line-height:1.35}
